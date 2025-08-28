@@ -46,31 +46,47 @@ function App() {
 			<div className="mt-4">
 				<p className="text-lg">Welcome to ollama-reply</p>
 				<p className="text-sm text-zinc-400">
-					Click the button below to detect post and generate a reply
+					AI Reply buttons are now automatically injected on LinkedIn posts and comments! 🚀
 				</p>
-				<Button
-					className="mt-2"
-					onClick={async () => {
-						setIsLoading(true);
-						const tabs = await browser.tabs.query({
-							active: true,
-							currentWindow: true,
-						});
-						const results = await browser.scripting.executeScript({
-							target: { tabId: tabs[0].id },
-							function: analyzeCurrentTweet,
-						});
-						const tweet = results[0].result; // Get the result from the injected script
-						const response = await browser.runtime.sendMessage({
-							action: "fetchResponse",
-							tweet: tweet,
-						});
-						setResponse(response.response);
-						setIsLoading(false);
-					}}
-				>
-					{response ? "Generate another reply" : "Generate reply"}
-				</Button>
+				<div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+					<p className="text-sm text-blue-800 mb-2">
+						<strong>New Feature:</strong> Automatic LinkedIn Integration
+					</p>
+					<ul className="text-xs text-blue-700 space-y-1">
+						<li>• AI Reply buttons appear on every LinkedIn post</li>
+						<li>• Context-aware replies for posts and comments</li>
+						<li>• No need to manually trigger - just click the AI Reply button!</li>
+					</ul>
+				</div>
+				<div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+					<p className="text-sm text-gray-700 mb-2">
+						<strong>Manual Mode:</strong> Still available for Twitter
+					</p>
+					<Button
+						className="mt-2"
+						onClick={async () => {
+							setIsLoading(true);
+							const tabs = await browser.tabs.query({
+								active: true,
+								currentWindow: true,
+							});
+							const results = await browser.scripting.executeScript({
+								target: { tabId: tabs[0].id },
+								function: analyzeCurrentTweet,
+							});
+							const tweet = results[0].result; // Get the result from the injected script
+							const response = await browser.runtime.sendMessage({
+								action: "fetchResponse",
+								context: tweet,
+								type: 'post'
+							});
+							setResponse(response.response);
+							setIsLoading(false);
+						}}
+					>
+						{response ? "Generate another reply" : "Generate Twitter reply"}
+					</Button>
+				</div>
 				{isLoading || response ? (
 					<div className="mt-4">
 						<p className="text-lg mb-2">Generated reply</p>
@@ -115,16 +131,16 @@ function analyzeCurrentTweet() {
 	const hostname = window.location.hostname;
 
 	if (hostname.includes("twitter.com")) {
-		const tweet = document.querySelector('[data-testid="tweetText"]').innerText;
-		return tweet;
+		const tweet = document.querySelector('[data-testid="tweetText"]')?.innerText;
+		return tweet || "No tweet text found";
 	}
 	if (hostname.includes("linkedin.com")) {
-		const descriptionWrapper = document.querySelector(
-			".feed-shared-update-v2__description-wrapper",
-		);
-		const postText = descriptionWrapper.innerText;
-		return postText;
+		// Try multiple selectors for LinkedIn posts
+		const postText = document.querySelector(
+			".feed-shared-update-v2__description, .feed-shared-inline-show-more-text, .update-components-text, .update-components-update-v2__commentary"
+		)?.innerText;
+		return postText || "No LinkedIn post text found";
 	}
 	console.error("Unsupported site");
-	return null;
+	return "Unsupported site - please use on Twitter or LinkedIn";
 }

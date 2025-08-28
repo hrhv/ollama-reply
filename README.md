@@ -1,130 +1,130 @@
-# ollama-reply
+# 🦙 Ollama Reply
 
-> **Disclaimer**: While I generally do not advocate for the use of automated tools for social media interactions, as they can reduce genuine human engagement, I wanted to build ollama-reply as an experiment. It was an opportunity to explore the capabilities of Ollama and dive into browser extensions.
+An open-source browser extension that leverages the power of AI to generate engaging replies for social media growth.
 
-ollama-reply is an open-source browser extension that leverages the power of the Ollama Llama3 model to generate engaging replies for social media growth. This tool is designed as a free and open alternative to [MagicReply](https://magicreply.io/).
+## ✨ Features
 
-## Features
+### 🚀 **NEW: Automatic LinkedIn Integration**
+- **AI Reply buttons automatically appear on every LinkedIn post and comment**
+- **Context-aware replies**: For comments, the AI considers both the original post and the comment
+- **No manual triggering needed** - just click the AI Reply button that appears on each post
+- **Professional LinkedIn styling** that matches the platform's design
 
-- **Open Source** 📖: Freely modify and distribute the code.
-- **Powerful AI** 🧠: Uses the Ollama Llama3 model for generating replies.
-- **Browser Extension** 🌐: Easy to use directly in your chromium browser.
-- **Customizable** ⚙️: Configurable to use any ollama model and adapt the answers to your needs
-- **Free** 💸: No cost to download and use the extension.
+### 🐦 **Twitter Support**
+- Manual tweet analysis and reply generation
+- Click the extension popup to analyze current tweet and generate a reply
 
-## Technologies
+### 🤖 **AI-Powered Responses**
+- Uses Ollama local models for privacy and speed
+- Context-aware responses that consider the full conversation
+- Professional tone suitable for LinkedIn networking
+- Engaging and relevant content generation
 
-ollama-reply is a react-based browser extension built using the following technologies:
+## 🎯 How It Works
 
-- [React](https://reactjs.org/)
-- [Vite](https://vitejs.dev/)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [shadcn-ui](https://shadcn-ui.com/)
-- [Ollama](https://ollama.com/)
-- [@samrum/vite-plugin-web-extension](https://github.com/samrum/vite-plugin-web-extension)
+### LinkedIn (Automatic Mode)
+1. Navigate to LinkedIn feed
+2. **AI Reply buttons automatically appear** on every post and comment
+3. Click any "AI Reply" button to generate a contextual response
+4. Copy the generated reply and use it to engage with the content
 
-## Getting Started
+### Twitter (Manual Mode)
+1. Navigate to a tweet
+2. Click the extension icon in your browser toolbar
+3. Click "Generate Twitter reply" button
+4. Copy the generated reply
+
+## 🛠️ Installation
 
 ### Prerequisites
+- [Ollama](https://ollama.ai/) installed and running locally
+- Chrome/Edge/Brave browser (or any Chromium-based browser)
 
-Before you begin, ensure you have:
+### Setup
+1. **Install Ollama** and run a model:
+   ```bash
+   ollama run llama3.2:1b
+   ```
 
-- A Chromium based Browser
-- Ollama installed - download [here](https://ollama.com/)
+2. **Load the extension**:
+   - Download or clone this repository
+   - Run `npm install` and `npm run build`
+   - Load the `dist/` folder as an unpacked extension in Chrome
+   - Or use `npm run dev` for development mode
 
-### Installation Steps
+3. **Ensure Ollama is running** on `localhost:11434`
 
-1. **Pull the AI Model**:
-   - Use the command `ollama pull llama3:8b` to download the Llama3 model. You can also use other models if you prefer. See [Configuration](#configuration) for more information.
+## 🔧 Configuration
 
-1. **Start Ollama Server**:
-   - ⚠️ Ensure you set the environment variable `OLLAMA_ORIGINS=* ollama serve` to allow calls from the browser extension.
+The extension uses the following default settings:
+- **Model**: `llama3.2:1b` (configurable in `src/entries/background/main.ts`)
+- **System Prompt**: Optimized for professional social media engagement
+- **Context Handling**: Automatically extracts post and comment context
 
-3. **Download the Repository**:
-   - Download the ollama-reply repository from GitHub.
+## 🎨 Customization
 
-4. **Unzip the Repository**:
-   - Unzip the downloaded repository to a desired location on your computer.
+### Changing the AI Model
+Edit `src/entries/background/main.ts`:
+```typescript
+const MODEL = "your-preferred-model:version";
+```
 
-5. **Load the Extension**:
-   - Open Google Chrome (or other chromium browser) and navigate to `chrome://extensions/`.
-   - Enable Developer Mode by toggling the switch at the top-right.
-   - Click on "Load unpacked" and select the `dist` folder inside the unzipped folder of this repository.
+### Modifying System Prompts
+Update the `SYSTEM_PROMPT` constant in the background script to change the AI's behavior and response style.
 
-## Usage
+### Styling
+Customize the appearance by modifying `src/entries/contentScript/primary/styles.css`.
 
-Once installed, navigate to any post on Twitter or LinkedIn, and you will see an additional button labeled "Generate Reply". Clicking this button will use the Ollama Llama3 model to generate a contextually relevant reply.
+## 🚀 Development
 
-## Configuration
-
-### Model Selection
-
-By default the extension uses the `llama3:8b` model. You can change this by pulling the model you want from ollama and updating the `MODEL` variable in the `src/entries/background/main.ts` file. You will need to rebuild the extension after changing the model.
-
-### Prompt Configuration
-
-You can configure the answers generated by the extension by updating the `SYSTEM_PROMPT` variable in the `src/entries/background/main.ts` file. This variable is used as the prompt for the Ollama model. You will need to rebuild the extension after changing the prompt.
-
-## Development
-
-This project uses [@samrum/vite-plugin-web-extension](https://github.com/samrum/vite-plugin-web-extension). Refer to the plugin documentation for more information.
-
-### Project Setup
-
-```sh
+```bash
+# Install dependencies
 npm install
-```
 
-### Commands
-
-Hot Module Reloading is used to load changes inline without requiring extension rebuilds and extension/page reloads
-Currently only works in Chromium based browsers.
-```sh
+# Development mode with hot reload
 npm run dev
-```
 
-#### Development, Watch
+# Build for production
+npm run build
 
-Rebuilds extension on file changes. Requires a reload of the extension (and page reload if using content scripts)
-```sh
+# Watch mode for development
 npm run watch
 ```
 
-#### Production
+## 📁 Project Structure
 
-Minifies and optimizes extension build
-```sh
-npm run build
+```
+src/
+├── entries/
+│   ├── background/          # Background service worker
+│   ├── contentScript/       # LinkedIn content injection
+│   └── popup/              # Extension popup interface
+├── components/              # Reusable UI components
+└── lib/                    # Utility functions
 ```
 
-### Load extension in browser
+## 🔍 How LinkedIn Integration Works
 
-Loads the contents of the dist directory into the specified browser
-```sh
-npm run serve:chrome
-```
+1. **Content Detection**: Automatically scans LinkedIn feed for posts and comments
+2. **CTA Injection**: Injects "AI Reply" buttons into the social action bars
+3. **Context Extraction**: Captures post text, author, and comment context
+4. **AI Processing**: Sends context to Ollama for reply generation
+5. **Response Display**: Shows generated reply with copy functionality
 
-```sh
-npm run serve:firefox
-```
+## 🤝 Contributing
 
-## Contributing
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+## 📄 License
 
-- Fork the Project
-- Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-- Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-- Push to the Branch (`git push origin feature/AmazingFeature`)
-- Open a Pull Request
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## License
+## 🙏 Acknowledgments
 
-Distributed under the MIT License. See `LICENSE` for more information.
+- Built with [Vite](https://vitejs.dev/) and [React](https://reactjs.org/)
+- Powered by [Ollama](https://ollama.ai/) for local AI inference
+- Styled with [Tailwind CSS](https://tailwindcss.com/)
 
-## Acknowledgments
+---
 
-- Inspired by [MagicReply](https://magicreply.io/)
-- [@samrum/vite-plugin-web-extension](https://github.com/samrum/vite-plugin-web-extension)
-- [Ollama](https://ollama.com/)
+**Note**: Make sure Ollama is running locally before using the extension. The extension will show helpful error messages if Ollama is not accessible.

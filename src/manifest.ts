@@ -14,7 +14,7 @@ const manifest = {
 	content_scripts: [
 		{
 			js: ["src/entries/contentScript/primary/main.tsx"],
-			matches: ["https://twitter.com/*"],
+			matches: ["https://twitter.com/*", "https://www.linkedin.com/*"],
 		},
 	],
 	host_permissions: ["*://*/*"],
