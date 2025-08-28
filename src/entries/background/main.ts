@@ -1,6 +1,6 @@
 import browser from "webextension-polyfill";
 
-const MODEL = "llama3:8b";
+const MODEL = "llama3.2:1b";
 
 const SYSTEM_PROMPT = `You are an AI assistant that generates engaging responses to social media posts. Based on the tweet you receive, you must generate a response that is engaging and relevant.
 

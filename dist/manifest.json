@@ -40,14 +40,13 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "assets/src/entries/contentScript/primary/main-GPJDZC7B.js",
-        "assets/client-Cak328OE.js",
+        "assets/src/entries/contentScript/primary/main-DeXa06Xy.js",
+        "assets/@react-refresh-C4_Q0vhx.js",
         "assets/browser-polyfill-CDoadmtY.js"
       ],
       "matches": [
         "https://twitter.com/*"
-      ],
-      "use_dynamic_url": true
+      ]
     }
   ]
 }
