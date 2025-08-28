@@ -13,7 +13,7 @@ Guidelines:
 - For LinkedIn: Maintain a professional tone while being personable
 - For comments: Consider the context of both the original post and the comment
 - For posts: Respond in a way that adds value to the conversation
-- In the response, don't include any other text than the reply itself. No explanations.`;
+- In the response, don't include any other text than the reply itself. No explanations like "Here's a LinkedIn response that adds value to the conversation" or "Here's a reply to the post" or anything like that.`;
 
 browser.runtime.onInstalled.addListener(() => {
 	console.log("Extension installed");
