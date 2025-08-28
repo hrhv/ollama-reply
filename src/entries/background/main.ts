@@ -12,16 +12,19 @@ Guidelines:
 - Don't use hashtags
 - For LinkedIn: Maintain a professional tone while being personable
 - For comments: Consider the context of both the original post and the comment
-- For posts: Respond in a way that adds value to the conversation`;
+- For posts: Respond in a way that adds value to the conversation
+- In the response, don't include any other text than the reply itself. No explanations.`;
 
 browser.runtime.onInstalled.addListener(() => {
 	console.log("Extension installed");
 });
 
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((request: any, sender: any, sendResponse: any) => {
 	if (request.action === "fetchResponse") {
 		fetchResponse(request.context || request.tweet, request.type).then((response) => {
 			sendResponse({ response: response });
+		}).catch((error) => {
+			sendResponse({ error: error.message });
 		});
 		return true; // Indicates asynchronous response
 	}
@@ -36,23 +39,43 @@ async function fetchResponse(context: string, type?: string): Promise<string> {
 		enhancedContext = `This is a LinkedIn post. Please generate an engaging reply that adds value to the conversation.\n\nPost:\n${context}`;
 	}
 
-	const response = await fetch("http://localhost:11434/api/chat", {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			stream: false,
-			model: MODEL,
-			messages: [
-				{
-					role: "system",
-					content: SYSTEM_PROMPT,
-				},
-				{ role: "user", content: enhancedContext },
-			],
-		}),
-	});
-	const data = await response.json();
-	return data.message.content;
+	try {
+		const response = await fetch("http://localhost:11434/api/chat", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				stream: false,
+				model: MODEL,
+				messages: [
+					{
+						role: "system",
+						content: SYSTEM_PROMPT,
+					},
+					{ role: "user", content: enhancedContext },
+				],
+			}),
+		});
+
+		if (!response.ok) {
+			if (response.status === 403) {
+				throw new Error(`Ollama rejected the request (403). This usually means:\n1. Ollama is not running\n2. Ollama needs to be started with CORS enabled\n3. Try running: OLLAMA_ORIGINS=* ollama serve`);
+			} else {
+				throw new Error(`Ollama returned error ${response.status}: ${response.statusText}`);
+			}
+		}
+
+		const data = await response.json();
+		if (!data.message || !data.message.content) {
+			throw new Error('Invalid response format from Ollama');
+		}
+		
+		return data.message.content;
+	} catch (error) {
+		if (error instanceof TypeError && error.message.includes('fetch')) {
+			throw new Error('Cannot connect to Ollama. Please ensure:\n1. Ollama is running on localhost:11434\n2. Run: OLLAMA_ORIGINS=* ollama serve');
+		}
+		throw error;
+	}
 }

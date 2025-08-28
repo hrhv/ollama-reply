@@ -35,29 +35,72 @@ function App() {
         subtree: true,
       });
 
+      // Add scroll event listener for better post detection
+      const handleScroll = () => {
+        debouncedScan();
+      };
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+
+      // Add periodic scan to catch missed posts
+      const periodicScan = setInterval(() => {
+        scanLinkedInContent();
+      }, 10000); // Scan every 10 seconds
+
       return () => {
         observer.disconnect();
         clearTimeout(scanTimeout);
+        window.removeEventListener('scroll', handleScroll);
+        clearInterval(periodicScan);
       };
     }
   }, []);
 
-  const scanLinkedInContent = () => {
+  const scanLinkedInContent = async () => {
     const newPosts: LinkedInPost[] = [];
     
     // Scan for main posts - using multiple selectors for better coverage
-    const postElements = document.querySelectorAll('[data-urn^="urn:li:activity:"], .feed-shared-update-v2, .occludable-update, .feed-shared-update-v2--minimal-padding');
-    postElements.forEach((postEl) => {
+    const postElements = document.querySelectorAll('[data-urn^="urn:li:activity:"], .feed-shared-update-v2, .occludable-update, .feed-shared-update-v2--minimal-padding, [class*="feed-shared"], [class*="update-v2"]');
+    
+    for (const postEl of postElements) {
       // Get URN from various possible attributes
       const urn = postEl.getAttribute('data-urn') || 
                   postEl.getAttribute('data-finite-scroll-hotkey-item') || 
                   `post-${Date.now()}-${Math.random()}`;
       
-      if (posts.some(p => p.id === urn)) return;
+      if (posts.some(p => p.id === urn)) continue;
       
       // Try multiple selectors for post text with fallbacks
       let textElement = postEl.querySelector('.feed-shared-update-v2__description, .feed-shared-inline-show-more-text, .update-components-text, .update-components-update-v2__commentary');
       let authorElement = postEl.querySelector('.update-components-actor__title, .update-components-actor__single-line-truncate');
+      
+      // Check if post is truncated and expand it
+      const expandButton = postEl.querySelector('.feed-shared-inline-show-more-text__see-more-less-toggle');
+      if (expandButton && expandButton.textContent?.includes('…more')) {
+        try {
+          // Click the expand button to show full content
+          (expandButton as HTMLElement).click();
+          // Wait a bit for the content to expand
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          // After expansion, try to get the full text again
+          textElement = postEl.querySelector('.feed-shared-update-v2__description, .feed-shared-inline-show-more-text, .update-components-text, .update-components-update-v2__commentary');
+        } catch (error) {
+          console.log('Could not expand post:', error);
+        }
+      }
+      
+      // Also check for other truncation patterns
+      const moreTextButton = postEl.querySelector('[aria-label*="see more"], [class*="see-more"], [class*="show-more"]');
+      if (moreTextButton && !textElement) {
+        try {
+          (moreTextButton as HTMLElement).click();
+          await new Promise(resolve => setTimeout(resolve, 200));
+          textElement = postEl.querySelector('.feed-shared-update-v2__description, .feed-shared-inline-show-more-text, .update-components-text, .update-components-update-v2__commentary');
+        } catch (error) {
+          console.log('Could not expand post with alternative button:', error);
+        }
+      }
       
       // Fallback: try to find text content in any readable element
       if (!textElement) {
@@ -88,10 +131,10 @@ function App() {
           });
         }
       }
-    });
+    }
 
     // Scan for comments - LinkedIn comments are often in different structures
-    const commentElements = document.querySelectorAll('.feed-shared-comment, .comments-comment-item, .update-v2-social-activity .social-details-social-counts + div');
+    const commentElements = document.querySelectorAll('.feed-shared-comment, .comments-comment-item, .update-v2-social-activity .social-details-social-counts + div, [class*="comment"], [class*="reply"]');
     commentElements.forEach((commentEl) => {
       const commentId = commentEl.getAttribute('data-comment-id') || 
                        commentEl.getAttribute('data-urn') || 
@@ -99,8 +142,8 @@ function App() {
       if (posts.some(p => p.id === commentId)) return;
       
       // Try multiple selectors for comment text
-      const textElement = commentEl.querySelector('.feed-shared-comment__content, .comments-comment-item__main-content, .update-components-text');
-      const authorElement = commentEl.querySelector('.feed-shared-comment__actor-name, .comments-comment-item__actor-name, .update-components-actor__title');
+      const textElement = commentEl.querySelector('.feed-shared-comment__content, .comments-comment-item__main-content, .update-components-text, [class*="content"], [class*="text"]');
+      const authorElement = commentEl.querySelector('.feed-shared-comment__actor-name, .comments-comment-item__actor-name, .update-components-actor__title, [class*="actor"], [class*="author"], [class*="name"]');
       
       if (textElement && authorElement) {
         const text = textElement.textContent?.trim() || '';
@@ -141,8 +184,7 @@ function App() {
   const injectPostCTA = (post: LinkedInPost) => {
     // Try multiple selectors to find the post element
     const postElement = document.querySelector(`[data-urn="${post.id}"]`) || 
-                       document.querySelector(`[data-finite-scroll-hotkey-item="${post.id}"]`) ||
-                       document.querySelector(`.feed-shared-update-v2:has(.update-components-text:contains("${post.text.substring(0, 50)}"))`);
+                       document.querySelector(`[data-finite-scroll-hotkey-item="${post.id}"]`);
     
     if (!postElement) return;
     
@@ -179,14 +221,23 @@ function App() {
   const injectCommentCTA = (comment: LinkedInPost) => {
     // Try multiple selectors to find the comment element
     const commentElement = document.querySelector(`[data-comment-id="${comment.id}"]`) || 
-                          document.querySelector(`[data-urn="${comment.id}"]`) ||
-                          document.querySelector(`.feed-shared-comment:has(.update-components-text:contains("${comment.text.substring(0, 30)}"))`);
+                          document.querySelector(`[data-urn="${comment.id}"]`);
     
     if (!commentElement || commentElement.querySelector('.ollama-reply-cta')) return;
     
     // Try multiple selectors for comment actions
-    const commentActions = commentElement.querySelector('.feed-shared-comment__actions, .comments-comment-item__actions, .social-actions');
-    if (!commentActions) return;
+    let commentActions = commentElement.querySelector('.feed-shared-comment__actions, .comments-comment-item__actions, .social-actions');
+    
+    // If no actions container found, try to create one or find alternative locations
+    if (!commentActions) {
+      // Look for any action-like elements
+      commentActions = commentElement.querySelector('[class*="action"], [class*="button"], [class*="toolbar"]');
+      
+      // If still not found, try to append to the comment element itself
+      if (!commentActions) {
+        commentActions = commentElement;
+      }
+    }
     
     const ctaButton = document.createElement('button');
     ctaButton.className = 'ollama-reply-cta artdeco-button artdeco-button--muted artdeco-button--2 artdeco-button--tertiary';
@@ -201,6 +252,9 @@ function App() {
       if (isGenerating === comment.id) return; // Prevent multiple clicks
       generateReply(comment);
     });
+    
+    // Add some spacing and insert the button
+    ctaButton.style.marginLeft = '8px';
     commentActions.appendChild(ctaButton);
   };
 
@@ -235,6 +289,8 @@ function App() {
         // Show the generated reply in a modal or tooltip
         showGeneratedReply(post.id, response.response);
         console.log('Reply generated successfully');
+      } else if (response && response.error) {
+        throw new Error(response.error);
       } else {
         throw new Error('No response received from background script');
       }
@@ -242,7 +298,14 @@ function App() {
       console.error('Error generating reply:', error);
       // Show a more user-friendly error message
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`Failed to generate reply: ${errorMessage}\n\nPlease make sure Ollama is running on localhost:11434`);
+      
+      if (errorMessage.includes('403') || errorMessage.includes('CORS')) {
+        alert(`Ollama Connection Error:\n\n${errorMessage}\n\nTo fix this:\n1. Stop Ollama if it's running\n2. Run: OLLAMA_ORIGINS=* ollama serve\n3. In another terminal: ollama run llama3.2:1b`);
+      } else if (errorMessage.includes('Cannot connect')) {
+        alert(`Ollama Not Running:\n\n${errorMessage}\n\nPlease start Ollama first:\n1. Run: OLLAMA_ORIGINS=* ollama serve\n2. In another terminal: ollama run llama3.2:1b`);
+      } else {
+        alert(`Failed to generate reply: ${errorMessage}`);
+      }
     } finally {
       setIsGenerating(null);
       
@@ -283,13 +346,48 @@ function App() {
           <path d="M8 1a7 7 0 107 7 7 7 0 00-7-7zM3 8a5 5 0 011-3l.55.55A1.5 1.5 0 015 6.62v1.07a.75.75 0 00.22.53l.56.56a.75.75 0 00.53.22H7v.69a.75.75 0 00.22.53l.56.56a.75.75 0 01.22.53V13a5 5 0 01-5-5zm6.24 4.83l2-2.46a.75.75 0 00.09-.8l-.58-1.16A.76.76 0 0010 8H7v-.19a.51.51 0 01.28-.45l.38-.19a.74.74 0 01.68 0L9 7.5l.38-.7a1 1 0 00.12-.48v-.85a.78.78 0 01.21-.53l1.07-1.09a5 5 0 01-1.54 9z"/>
         </svg>
         <span style="font-size: 14px; font-weight: 500; color: #1e40af;">AI Generated Reply</span>
-        <button style="margin-left: auto; color: #2563eb; font-size: 14px; background: none; border: none; cursor: pointer; font-weight: bold;" onclick="this.parentElement.parentElement.remove()">×</button>
+        <button class="close-reply-btn" style="margin-left: auto; color: #2563eb; font-size: 14px; background: none; border: none; cursor: pointer; font-weight: bold;">×</button>
       </div>
       <p style="font-size: 14px; color: #1e40af; margin-bottom: 8px; line-height: 1.4;">${reply}</p>
-      <button style="font-size: 12px; background-color: #2563eb; color: white; padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-weight: 500;" onclick="navigator.clipboard.writeText('${reply}')">
-        Copy Reply
-      </button>
+      <div style="display: flex; gap: 8px;">
+        <button class="copy-reply-btn" style="font-size: 12px; background-color: #2563eb; color: white; padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-weight: 500;">
+          Copy Reply
+        </button>
+        <button class="retry-reply-btn" style="font-size: 12px; background-color: #059669; color: white; padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-weight: 500;">
+          Retry
+        </button>
+      </div>
     `;
+    
+    // Add event listeners for the buttons
+    const closeBtn = replyDisplay.querySelector('.close-reply-btn');
+    const copyBtn = replyDisplay.querySelector('.copy-reply-btn');
+    const retryBtn = replyDisplay.querySelector('.retry-reply-btn');
+    
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => replyDisplay.remove());
+    }
+    
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(reply);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy Reply';
+        }, 2000);
+      });
+    }
+    
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        replyDisplay.remove();
+        // Find the post and regenerate
+        const post = posts.find(p => p.id === postId);
+        if (post) {
+          generateReply(post);
+        }
+      });
+    }
     
     // Find the post element and insert the reply
     const postElement = document.querySelector(`[data-urn="${postId}"]`) || 
@@ -297,15 +395,33 @@ function App() {
                        document.querySelector(`[data-finite-scroll-hotkey-item="${postId}"]`);
     
     if (postElement) {
-      // Try multiple selectors for where to insert the reply
-      const description = postElement.querySelector('.feed-shared-update-v2__description, .feed-shared-comment__content, .update-components-text, .update-components-update-v2__commentary');
-      if (description) {
-        description.parentElement?.appendChild(replyDisplay);
+      // For comments, try to insert near the comment input box
+      if (postElement.querySelector('[class*="comment"]')) {
+        const commentInput = postElement.querySelector('[class*="input"], [class*="editor"], [class*="textarea"]');
+        if (commentInput) {
+          commentInput.parentElement?.insertBefore(replyDisplay, commentInput);
+        } else {
+          // Fallback: insert after the comment content
+          const commentContent = postElement.querySelector('[class*="content"], [class*="text"]');
+          if (commentContent) {
+            commentContent.parentElement?.appendChild(replyDisplay);
+          } else {
+            postElement.appendChild(replyDisplay);
+          }
+        }
       } else {
-        // Fallback: insert after the social action bar
+        // For posts, insert after the social action bar
         const socialBar = postElement.querySelector('.feed-shared-social-action-bar, .social-actions-container');
         if (socialBar) {
           socialBar.parentElement?.insertBefore(replyDisplay, socialBar.nextSibling);
+        } else {
+          // Fallback: insert after the post content
+          const postContent = postElement.querySelector('.feed-shared-update-v2__description, .update-components-text');
+          if (postContent) {
+            postContent.parentElement?.appendChild(replyDisplay);
+          } else {
+            postElement.appendChild(replyDisplay);
+          }
         }
       }
     }
