@@ -1,1 +1,0 @@
-(async()=>{await import(chrome.runtime.getURL("assets/src/entries/contentScript/primary/main-DeXa06Xy.js"))})();
